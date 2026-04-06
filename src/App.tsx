@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
-import { Camera, Database, Pencil, QrCode, Search, Settings, Trash2 } from 'lucide-react'
+import { Camera, CheckCircle2, Database, Pencil, QrCode, Search, Settings, Trash2 } from 'lucide-react'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import {
   addCategory,
@@ -42,6 +42,12 @@ import { Textarea } from './components/ui/textarea'
 
 type AppTab = 'scan' | 'list' | 'settings'
 
+type ToastState = {
+  id: number
+  message: string
+  toneClassName: string
+} | null
+
 function App() {
   const [data, setData] = useState<AppData>(() => loadData())
   const [activeTab, setActiveTab] = useState<AppTab>('scan')
@@ -58,6 +64,7 @@ function App() {
   const [newCustomStatus, setNewCustomStatus] = useState('')
   const [newCustomCategory, setNewCustomCategory] = useState('')
   const [settingsInfo, setSettingsInfo] = useState('')
+  const [toast, setToast] = useState<ToastState>(null)
 
   const lastScanRef = useRef({ qrCode: '', timestamp: 0 })
 
@@ -92,6 +99,37 @@ function App() {
     }
   }, [selectedMaterial])
 
+  useEffect(() => {
+    if (!toast) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setToast(null)
+    }, 2300)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [toast])
+
+  const showSuccessToast = (message: string) => {
+    setToast({
+      id: Date.now(),
+      message,
+      toneClassName: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+    })
+  }
+
+  const showStatusToast = (status: string) => {
+    const toneClassName = getStatusColorClasses(status).toast
+    setToast({
+      id: Date.now(),
+      message: `Текущий статус: ${status}`,
+      toneClassName,
+    })
+  }
+
   const processScannedQr = (scannedCodeRaw: string) => {
     const scannedCode = scannedCodeRaw.trim()
     if (!scannedCode) {
@@ -111,6 +149,7 @@ function App() {
 
     if (nextResult.result.kind === 'created') {
       setScanInfo(`Новый материал добавлен: ${scannedCode}`)
+      showSuccessToast('Новый материал добавлен')
       if (shouldAutoOpen) {
         setActiveTab('list')
       }
@@ -119,6 +158,16 @@ function App() {
 
     if (nextResult.result.kind === 'existing') {
       setScanInfo(`QR найден: ${scannedCode}`)
+
+      if (!data.settings.advanceStatusOnRepeatScan) {
+        const existingMaterial = data.materials.find(
+          (material) => material.id === nextResult.result.materialId,
+        )
+        if (existingMaterial) {
+          showStatusToast(existingMaterial.status)
+        }
+      }
+
       if (shouldAutoOpen) {
         setActiveTab('list')
       }
@@ -126,6 +175,9 @@ function App() {
     }
 
     setScanInfo(`Повторный скан: статус изменен на «${nextResult.result.status}»`)
+    if (nextResult.result.status) {
+      showSuccessToast(`Статус изменен: ${nextResult.result.status}`)
+    }
   }
 
   const handleDetected = (detectedCodes: Array<{ rawValue?: string }>) => {
@@ -191,6 +243,7 @@ function App() {
   }
 
   const handleManualStatusChange = (nextStatus: string) => {
+    const previousStatus = selectedMaterial?.status
     setManualStatus(nextStatus)
 
     if (!selectedMaterialId) {
@@ -198,6 +251,10 @@ function App() {
     }
 
     setData((prev) => changeMaterialStatus(prev, selectedMaterialId, nextStatus, 'manual', ''))
+
+    if (previousStatus && previousStatus !== nextStatus) {
+      showSuccessToast(`Статус изменен: ${nextStatus}`)
+    }
   }
 
   const handleDeleteMaterial = (materialId: string) => {
@@ -323,6 +380,7 @@ function App() {
       return {
         badge: 'border-sky-300 bg-sky-50 text-sky-700',
         card: 'border-l-4 border-l-sky-500',
+        toast: 'border-sky-300 bg-sky-50 text-sky-800',
       }
     }
 
@@ -330,6 +388,7 @@ function App() {
       return {
         badge: 'border-amber-300 bg-amber-50 text-amber-700',
         card: 'border-l-4 border-l-amber-500',
+        toast: 'border-amber-300 bg-amber-50 text-amber-800',
       }
     }
 
@@ -337,13 +396,15 @@ function App() {
       return {
         badge: 'border-violet-300 bg-violet-50 text-violet-700',
         card: 'border-l-4 border-l-violet-500',
+        toast: 'border-violet-300 bg-violet-50 text-violet-800',
       }
     }
 
     if (normalized === 'использован') {
       return {
-        badge: 'border-emerald-300 bg-emerald-50 text-emerald-700',
-        card: 'border-l-4 border-l-emerald-500',
+        badge: 'border-green-300 bg-green-50 text-green-700',
+        card: 'border-l-4 border-l-green-500',
+        toast: 'border-green-300 bg-green-50 text-green-800',
       }
     }
 
@@ -351,12 +412,14 @@ function App() {
       return {
         badge: 'border-rose-300 bg-rose-50 text-rose-700',
         card: 'border-l-4 border-l-rose-500',
+        toast: 'border-rose-300 bg-rose-50 text-rose-800',
       }
     }
 
     return {
       badge: 'border-slate-300 bg-slate-50 text-slate-700',
       card: 'border-l-4 border-l-slate-400',
+      toast: 'border-slate-300 bg-slate-50 text-slate-800',
     }
   }
 
@@ -535,6 +598,15 @@ function App() {
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-5xl px-3 py-4 md:px-4">
+      {toast ? (
+        <div className="pointer-events-none fixed top-3 right-3 left-3 z-[120]" aria-live="polite">
+          <div className={`mx-auto flex min-h-[74px] w-full max-w-5xl items-center gap-3 rounded-lg border px-5 py-5 text-base font-medium shadow-lg ${toast.toneClassName}`}>
+            <CheckCircle2 className="size-5" />
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      ) : null}
+
       <Card className="mb-3 border-none bg-gradient-to-br from-amber-100 via-lime-50 to-emerald-100 shadow-sm">
         <CardHeader>
           <CardTitle className="text-xl">Склад Материалов 3D Форм</CardTitle>
@@ -567,9 +639,10 @@ function App() {
                 <Camera className="size-4" />
                 Быстрое сканирование
               </CardTitle>
-              <CardDescription>{scanInfo}</CardDescription>
+              <CardDescription>Сканируйте камерой или введите код вручную.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <span className="sr-only" aria-live="polite">{scanInfo}</span>
               {!window.isSecureContext ? (
                 <div className="rounded-md border border-orange-300 bg-orange-50 p-3 text-sm text-orange-900">
                   Камера на телефоне требует HTTPS или localhost. Текущий адрес:
