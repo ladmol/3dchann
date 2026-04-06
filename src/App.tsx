@@ -7,6 +7,7 @@ import {
   addCustomStatus,
   BASE_STATUSES,
   changeMaterialStatus,
+  DELETED_CATEGORY_LABEL,
   DELETED_STATUS_LABEL,
   deleteMaterial,
   formatDateTime,
@@ -62,15 +63,7 @@ function App() {
 
   const statuses = useMemo(() => getAllStatuses(data.settings), [data.settings])
 
-  const categories = useMemo(() => {
-    const set = new Set<string>(getAllCategories(data.settings))
-    for (const material of data.materials) {
-      if (material.category.trim()) {
-        set.add(material.category.trim())
-      }
-    }
-    return Array.from(set)
-  }, [data.materials])
+  const categories = useMemo(() => getAllCategories(data.settings), [data.settings])
 
   const selectedMaterial = useMemo(
     () => data.materials.find((item) => item.id === selectedMaterialId) ?? null,
@@ -442,6 +435,11 @@ function App() {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Категория</label>
+              {selectedMaterial.category === DELETED_CATEGORY_LABEL ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                  У карточки удалена категория. Выберите новую категорию из списка ниже.
+                </div>
+              ) : null}
               <select
                 className={statusSelectClassName}
                 value={selectedMaterial.category}
@@ -449,6 +447,9 @@ function App() {
                   handleUpdateMaterial(selectedMaterial.id, { category: event.target.value })
                 }
               >
+                {!categories.includes(selectedMaterial.category) ? (
+                  <option value={selectedMaterial.category}>{selectedMaterial.category}</option>
+                ) : null}
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}

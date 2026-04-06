@@ -9,6 +9,7 @@ export const BASE_STATUSES = [
 ] as const
 
 export const DELETED_STATUS_LABEL = 'СТАТУС УДАЛЕН - выберите новый'
+export const DELETED_CATEGORY_LABEL = 'КАТЕГОРИЯ УДАЛЕНА - выберите новую'
 
 export const DEFAULT_CATEGORIES = [
   'песок',
@@ -574,20 +575,33 @@ export function removeCategory(
   data: AppData,
   category: string,
 ): { nextData: AppData; error?: string } {
-  const inUse = data.materials.some((material) => material.category === category)
-  if (inUse) {
-    return {
-      nextData: data,
-      error: 'Категория используется в материалах. Сначала смените ее в карточках.',
-    }
+  const nextCategories = data.settings.categories.filter(
+    (item) => item.toLocaleLowerCase('ru-RU') !== category.toLocaleLowerCase('ru-RU'),
+  )
+
+  if (nextCategories.length === 0) {
+    return { nextData: data, error: 'Нельзя удалить последнюю категорию' }
   }
+
+  const nextMaterials = data.materials.map((material) => {
+    if (material.category.toLocaleLowerCase('ru-RU') !== category.toLocaleLowerCase('ru-RU')) {
+      return material
+    }
+
+    return {
+      ...material,
+      category: DELETED_CATEGORY_LABEL,
+      updatedAt: nowIso(),
+    }
+  })
 
   return {
     nextData: {
       ...data,
+      materials: nextMaterials,
       settings: {
         ...data.settings,
-        categories: data.settings.categories.filter((item) => item !== category),
+        categories: nextCategories,
       },
     },
   }
@@ -761,7 +775,9 @@ export function validateImportData(raw: unknown): ImportValidationResult {
   }
 
   const importedCategories = uniqueNormalized(materials.map((material) => material.category).filter(Boolean))
-  settings.categories = uniqueNormalized([...settings.categories, ...importedCategories])
+  settings.categories = uniqueNormalized(
+    [...settings.categories, ...importedCategories].filter((item) => item !== DELETED_CATEGORY_LABEL),
+  )
 
   const statuses = getAllStatuses(settings)
   const materialQrs = new Set<string>()
