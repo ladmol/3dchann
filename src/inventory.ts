@@ -8,6 +8,8 @@ export const BASE_STATUSES = [
   'списан',
 ] as const
 
+export const DELETED_STATUS_LABEL = 'СТАТУС УДАЛЕН - выберите новый'
+
 export const DEFAULT_CATEGORIES = [
   'песок',
   'смола',
@@ -45,6 +47,8 @@ export interface MaterialRecord {
 
 export interface AppSettings {
   customStatuses: string[]
+  renamedBaseStatuses: Record<string, string>
+  removedBaseStatuses: string[]
   categories: string[]
   repeatScanMode: RepeatScanMode
   autoScanStatus: string
@@ -72,6 +76,8 @@ export interface ImportValidationResult {
 
 const DEFAULT_SETTINGS: AppSettings = {
   customStatuses: [],
+  renamedBaseStatuses: {},
+  removedBaseStatuses: [],
   categories: [...DEFAULT_CATEGORIES],
   repeatScanMode: 'open-card',
   autoScanStatus: BASE_STATUSES[1],
@@ -111,7 +117,10 @@ function uniqueNormalized(values: string[]): string[] {
 }
 
 export function getAllStatuses(settings: AppSettings): string[] {
-  return uniqueNormalized([...BASE_STATUSES, ...settings.customStatuses])
+  const baseStatuses = BASE_STATUSES
+    .filter((base) => !settings.removedBaseStatuses.includes(base))
+    .map((base) => settings.renamedBaseStatuses[base] || base)
+  return uniqueNormalized([...baseStatuses, ...settings.customStatuses])
 }
 
 export function getAllCategories(settings: AppSettings): string[] {
@@ -123,10 +132,23 @@ function buildDefaultData(): AppData {
     ...DEFAULT_DATA,
     settings: {
       ...DEFAULT_SETTINGS,
+      renamedBaseStatuses: { ...DEFAULT_SETTINGS.renamedBaseStatuses },
+      removedBaseStatuses: [...DEFAULT_SETTINGS.removedBaseStatuses],
       categories: [...DEFAULT_SETTINGS.categories],
     },
     materials: [],
   }
+}
+
+function resolveBaseStatusKey(settings: AppSettings, statusName: string): string | null {
+  const lowered = statusName.toLocaleLowerCase('ru-RU')
+  for (const base of BASE_STATUSES) {
+    const mapped = settings.renamedBaseStatuses[base] || base
+    if (mapped.toLocaleLowerCase('ru-RU') === lowered) {
+      return base
+    }
+  }
+  return null
 }
 
 export function saveData(data: AppData): void {
@@ -210,6 +232,12 @@ export function processScan(
 
     if (data.settings.advanceStatusOnRepeatScan) {
       const statuses = getAllStatuses(data.settings)
+      if (statuses.length === 0) {
+        return {
+          nextData: data,
+          result: { kind: 'existing', materialId: existing.id },
+        }
+      }
       const currentIndex = statuses.findIndex((status) => status === existing.status)
       const nextIndex = currentIndex >= 0 ? Math.min(currentIndex + 1, statuses.length - 1) : 0
       const targetStatus = statuses[nextIndex]
@@ -248,6 +276,12 @@ export function processScan(
     }
 
     const statuses = getAllStatuses(data.settings)
+    if (statuses.length === 0) {
+      return {
+        nextData: data,
+        result: { kind: 'existing', materialId: existing.id },
+      }
+    }
     const targetStatus = statuses.includes(data.settings.autoScanStatus)
       ? data.settings.autoScanStatus
       : statuses[0]
@@ -279,7 +313,8 @@ export function processScan(
   }
 
   const firstStatus = getAllStatuses(data.settings)[0]
-  const created = createMaterialFromQr(qrCode, firstStatus)
+  const resolvedFirstStatus = firstStatus || DELETED_STATUS_LABEL
+  const created = createMaterialFromQr(qrCode, resolvedFirstStatus)
 
   return {
     nextData: {
@@ -395,24 +430,141 @@ export function removeCustomStatus(
   data: AppData,
   status: string,
 ): { nextData: AppData; error?: string } {
-  if (BASE_STATUSES.includes(status as (typeof BASE_STATUSES)[number])) {
-    return { nextData: data, error: 'Базовые статусы нельзя удалить' }
+  const baseStatusKey = resolveBaseStatusKey(data.settings, status)
+
+  const existsInCustom = data.settings.customStatuses.some(
+    (item) => item.toLocaleLowerCase('ru-RU') === status.toLocaleLowerCase('ru-RU'),
+  )
+  if (!existsInCustom && !baseStatusKey) {
+    return { nextData: data, error: 'Статус не найден' }
   }
 
-  const inUse = data.materials.some((material) => material.status === status)
-  if (inUse) {
-    return {
-      nextData: data,
-      error: 'Статус используется в материалах. Сначала смените его в карточках.',
+  const nextCustomStatuses = data.settings.customStatuses.filter(
+    (item) => item.toLocaleLowerCase('ru-RU') !== status.toLocaleLowerCase('ru-RU'),
+  )
+
+  const nextRenamedBaseStatuses = {
+    ...data.settings.renamedBaseStatuses,
+  }
+
+  const nextRemovedBaseStatuses = [...data.settings.removedBaseStatuses]
+  if (baseStatusKey) {
+    delete nextRenamedBaseStatuses[baseStatusKey]
+    if (!nextRemovedBaseStatuses.includes(baseStatusKey)) {
+      nextRemovedBaseStatuses.push(baseStatusKey)
     }
   }
+
+  const nextStatuses = getAllStatuses({
+    ...data.settings,
+    customStatuses: nextCustomStatuses,
+    renamedBaseStatuses: nextRenamedBaseStatuses,
+    removedBaseStatuses: nextRemovedBaseStatuses,
+  })
+
+  if (nextStatuses.length === 0) {
+    return { nextData: data, error: 'Нельзя удалить последний доступный статус' }
+  }
+
+  const nextMaterials = data.materials.map((material) => {
+    if (material.status.toLocaleLowerCase('ru-RU') !== status.toLocaleLowerCase('ru-RU')) {
+      return material
+    }
+
+    return {
+      ...material,
+      status: DELETED_STATUS_LABEL,
+      updatedAt: nowIso(),
+      history: [
+        ...material.history,
+        createHistoryItem(material.status, DELETED_STATUS_LABEL, 'manual', `Статус «${material.status}» удален`),
+      ],
+    }
+  })
+
+  const nextAutoScanStatus = nextStatuses.includes(data.settings.autoScanStatus)
+    ? data.settings.autoScanStatus
+    : nextStatuses[0]
 
   return {
     nextData: {
       ...data,
+      materials: nextMaterials,
       settings: {
         ...data.settings,
-        customStatuses: data.settings.customStatuses.filter((item) => item !== status),
+        customStatuses: nextCustomStatuses,
+        renamedBaseStatuses: nextRenamedBaseStatuses,
+        removedBaseStatuses: nextRemovedBaseStatuses,
+        autoScanStatus: nextAutoScanStatus,
+      },
+    },
+  }
+}
+
+export function renameStatus(
+  data: AppData,
+  oldStatus: string,
+  nextStatusRaw: string,
+): { nextData: AppData; error?: string } {
+  const nextStatus = nextStatusRaw.trim()
+  if (!nextStatus) {
+    return { nextData: data, error: 'Введите непустое имя статуса' }
+  }
+
+  if (oldStatus.toLocaleLowerCase('ru-RU') === nextStatus.toLocaleLowerCase('ru-RU')) {
+    return { nextData: data }
+  }
+
+  const statuses = getAllStatuses(data.settings)
+  if (!statuses.includes(oldStatus)) {
+    return { nextData: data, error: 'Статус не найден' }
+  }
+
+  if (statuses.some((item) => item.toLocaleLowerCase('ru-RU') === nextStatus.toLocaleLowerCase('ru-RU'))) {
+    return { nextData: data, error: 'Статус с таким именем уже существует' }
+  }
+
+  const baseKey = resolveBaseStatusKey(data.settings, oldStatus)
+  const renameBase = Boolean(baseKey)
+
+  const nextCustomStatuses = renameBase
+    ? [...data.settings.customStatuses]
+    : data.settings.customStatuses.map((status) => (status === oldStatus ? nextStatus : status))
+
+  const nextRenamedBaseStatuses = {
+    ...data.settings.renamedBaseStatuses,
+  }
+
+  if (baseKey) {
+    nextRenamedBaseStatuses[baseKey] = nextStatus
+  }
+
+  const nextMaterials = data.materials.map((material) => {
+    const currentStatus = material.status === oldStatus ? nextStatus : material.status
+    const nextHistory = material.history.map((historyItem) => ({
+      ...historyItem,
+      fromStatus: historyItem.fromStatus === oldStatus ? nextStatus : historyItem.fromStatus,
+      toStatus: historyItem.toStatus === oldStatus ? nextStatus : historyItem.toStatus,
+    }))
+
+    return {
+      ...material,
+      status: currentStatus,
+      history: nextHistory,
+    }
+  })
+
+  const autoScanStatus = data.settings.autoScanStatus === oldStatus ? nextStatus : data.settings.autoScanStatus
+
+  return {
+    nextData: {
+      ...data,
+      materials: nextMaterials,
+      settings: {
+        ...data.settings,
+        customStatuses: nextCustomStatuses,
+        renamedBaseStatuses: nextRenamedBaseStatuses,
+        autoScanStatus,
       },
     },
   }
@@ -566,6 +718,25 @@ export function validateImportData(raw: unknown): ImportValidationResult {
       : [],
   )
 
+  const renamedBaseStatusesRaw =
+    settingsRaw.renamedBaseStatuses && typeof settingsRaw.renamedBaseStatuses === 'object'
+      ? (settingsRaw.renamedBaseStatuses as Record<string, unknown>)
+      : {}
+
+  const renamedBaseStatuses: Record<string, string> = {}
+  for (const baseStatus of BASE_STATUSES) {
+    const maybeRenamed = asString(renamedBaseStatusesRaw[baseStatus]).trim()
+    if (maybeRenamed) {
+      renamedBaseStatuses[baseStatus] = maybeRenamed
+    }
+  }
+
+  const removedBaseStatuses = Array.isArray(settingsRaw.removedBaseStatuses)
+    ? settingsRaw.removedBaseStatuses
+        .map((item) => asString(item))
+        .filter((item): item is string => BASE_STATUSES.includes(item as (typeof BASE_STATUSES)[number]))
+    : []
+
   const legacyCustomCategories = uniqueNormalized(
     Array.isArray(settingsRaw.customCategories)
       ? settingsRaw.customCategories.map((item) => asString(item))
@@ -580,6 +751,8 @@ export function validateImportData(raw: unknown): ImportValidationResult {
 
   const settings: AppSettings = {
     customStatuses,
+    renamedBaseStatuses,
+    removedBaseStatuses,
     categories: categories.length > 0 ? categories : [...DEFAULT_CATEGORIES, ...legacyCustomCategories],
     repeatScanMode: validMode,
     autoScanStatus: asString(settingsRaw.autoScanStatus) || BASE_STATUSES[1],
@@ -600,7 +773,7 @@ export function validateImportData(raw: unknown): ImportValidationResult {
     materialQrs.add(material.qrCode)
 
     if (!statuses.includes(material.status)) {
-      material.status = BASE_STATUSES[0]
+      material.status = statuses[0] || DELETED_STATUS_LABEL
     }
   }
 
@@ -608,7 +781,7 @@ export function validateImportData(raw: unknown): ImportValidationResult {
     ...settings,
     autoScanStatus: statuses.includes(settings.autoScanStatus)
       ? settings.autoScanStatus
-      : statuses[0],
+      : statuses[0] || DELETED_STATUS_LABEL,
   }
 
   return {

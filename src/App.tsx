@@ -7,6 +7,7 @@ import {
   addCustomStatus,
   BASE_STATUSES,
   changeMaterialStatus,
+  DELETED_STATUS_LABEL,
   deleteMaterial,
   formatDateTime,
   getAllCategories,
@@ -16,6 +17,7 @@ import {
   removeCategory,
   removeCustomStatus,
   renameCategory,
+  renameStatus,
   saveData,
   updateMaterialFields,
   validateImportData,
@@ -254,6 +256,11 @@ function App() {
   }
 
   const handleRemoveCustomStatus = (status: string) => {
+    const confirmed = window.confirm(`Удалить статус «${status}»?`)
+    if (!confirmed) {
+      return
+    }
+
     const result = removeCustomStatus(data, status)
     if (result.error) {
       setSettingsInfo(result.error)
@@ -262,6 +269,24 @@ function App() {
 
     setData(result.nextData)
     setSettingsInfo(`Статус «${status}» удален`)
+  }
+
+  const handleRenameStatus = (status: string) => {
+    const nextName = window.prompt('Новое название статуса', status)
+    if (nextName === null) {
+      return
+    }
+
+    const result = renameStatus(data, status, nextName)
+    if (result.error) {
+      setSettingsInfo(result.error)
+      return
+    }
+
+    setData(result.nextData)
+    if (nextName.trim() && nextName.trim() !== status) {
+      setSettingsInfo(`Статус «${status}» переименован в «${nextName.trim()}»`)
+    }
   }
 
   const handleRemoveCategory = (category: string) => {
@@ -340,6 +365,13 @@ function App() {
       badge: 'border-slate-300 bg-slate-50 text-slate-700',
       card: 'border-l-4 border-l-slate-400',
     }
+  }
+
+  const isBaseStatus = (status: string) => {
+    return BASE_STATUSES.some((baseStatus) => {
+      const resolvedName = data.settings.renamedBaseStatuses?.[baseStatus] || baseStatus
+      return resolvedName.toLocaleLowerCase('ru-RU') === status.toLocaleLowerCase('ru-RU')
+    })
   }
 
   const handleExport = () => {
@@ -427,11 +459,19 @@ function App() {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Статус (автосохранение)</label>
+              {manualStatus === DELETED_STATUS_LABEL ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                  У карточки удален статус. Выберите новый статус из списка ниже.
+                </div>
+              ) : null}
               <select
                 className={statusSelectClassName}
                 value={manualStatus}
                 onChange={(event) => handleManualStatusChange(event.target.value)}
               >
+                {!statuses.includes(manualStatus) ? (
+                  <option value={manualStatus}>{manualStatus}</option>
+                ) : null}
                 {statuses.map((status) => (
                   <option key={status} value={status}>
                     {status}
@@ -803,15 +843,29 @@ function App() {
                 {statuses.map((status) => (
                   <div key={status} className="flex items-center justify-between rounded-md border p-2">
                     <span className="text-sm">{status}</span>
-                    {BASE_STATUSES.includes(status as (typeof BASE_STATUSES)[number]) ? (
-                      <Badge variant="secondary" className={getStatusColorClasses(status).badge}>
-                        базовый
-                      </Badge>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => handleRemoveCustomStatus(status)}>
-                        Удалить
+                    <div className="flex items-center gap-2">
+                      {isBaseStatus(status) ? (
+                        <Badge variant="secondary" className={getStatusColorClasses(status).badge}>
+                          базовый
+                        </Badge>
+                      ) : null}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label={`Переименовать статус ${status}`}
+                        onClick={() => handleRenameStatus(status)}
+                      >
+                        <Pencil className="size-4" />
                       </Button>
-                    )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label={`Удалить статус ${status}`}
+                        onClick={() => handleRemoveCustomStatus(status)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
