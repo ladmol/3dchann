@@ -425,7 +425,18 @@ function App() {
                 <Scanner
                   constraints={{ facingMode: 'environment' }}
                   onScan={(codes) => handleDetected(codes as Array<{ rawValue?: string }>)}
-                  formats={['qr_code']}
+                  formats={[
+                    'qr_code',
+                    'code_128',
+                    'code_39',
+                    'code_93',
+                    'codabar',
+                    'ean_13',
+                    'ean_8',
+                    'itf',
+                    'upc_a',
+                    'upc_e',
+                  ]}
                   allowMultiple
                 />
               </div>
