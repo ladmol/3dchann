@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
-import { Camera, Database, QrCode, Search, Settings, Trash2 } from 'lucide-react'
+import { Camera, Database, Pencil, QrCode, Search, Settings, Trash2 } from 'lucide-react'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import {
-  addCustomCategory,
+  addCategory,
   addCustomStatus,
   BASE_STATUSES,
   changeMaterialStatus,
@@ -13,8 +13,9 @@ import {
   getAllStatuses,
   loadData,
   processScan,
-  removeCustomCategory,
+  removeCategory,
   removeCustomStatus,
+  renameCategory,
   saveData,
   updateMaterialFields,
   validateImportData,
@@ -240,8 +241,8 @@ function App() {
     setSettingsInfo('Статус добавлен')
   }
 
-  const handleAddCustomCategory = () => {
-    const result = addCustomCategory(data, newCustomCategory)
+  const handleAddCategory = () => {
+    const result = addCategory(data, newCustomCategory)
     if (result.error) {
       setSettingsInfo(result.error)
       return
@@ -263,8 +264,13 @@ function App() {
     setSettingsInfo(`Статус «${status}» удален`)
   }
 
-  const handleRemoveCustomCategory = (category: string) => {
-    const result = removeCustomCategory(data, category)
+  const handleRemoveCategory = (category: string) => {
+    const confirmed = window.confirm(`Удалить категорию «${category}»?`)
+    if (!confirmed) {
+      return
+    }
+
+    const result = removeCategory(data, category)
     if (result.error) {
       setSettingsInfo(result.error)
       return
@@ -272,6 +278,24 @@ function App() {
 
     setData(result.nextData)
     setSettingsInfo(`Категория «${category}» удалена`)
+  }
+
+  const handleRenameCategory = (category: string) => {
+    const nextName = window.prompt('Новое название категории', category)
+    if (nextName === null) {
+      return
+    }
+
+    const result = renameCategory(data, category, nextName)
+    if (result.error) {
+      setSettingsInfo(result.error)
+      return
+    }
+
+    setData(result.nextData)
+    if (nextName.trim() && nextName.trim() !== category) {
+      setSettingsInfo(`Категория «${category}» переименована в «${nextName.trim()}»`)
+    }
   }
 
   const getStatusColorClasses = (status: string) => {
@@ -800,7 +824,7 @@ function App() {
                     onChange={(event) => setNewCustomCategory(event.target.value)}
                     placeholder="Например: расходники"
                   />
-                  <Button onClick={handleAddCustomCategory}>Добавить</Button>
+                  <Button onClick={handleAddCategory}>Добавить</Button>
                 </div>
               </div>
 
@@ -808,13 +832,24 @@ function App() {
                 {categories.map((category) => (
                   <div key={category} className="flex items-center justify-between rounded-md border p-2">
                     <span className="text-sm">{category}</span>
-                    {!data.settings.customCategories.includes(category) ? (
-                      <Badge variant="secondary">базовая</Badge>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => handleRemoveCustomCategory(category)}>
-                        Удалить
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label={`Переименовать категорию ${category}`}
+                        onClick={() => handleRenameCategory(category)}
+                      >
+                        <Pencil className="size-4" />
                       </Button>
-                    )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label={`Удалить категорию ${category}`}
+                        onClick={() => handleRemoveCategory(category)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
