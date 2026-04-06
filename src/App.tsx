@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { Camera, Database, QrCode, Search, Settings, Trash2 } from 'lucide-react'
 import { Scanner } from '@yudiel/react-qr-scanner'
-import './App.css'
 import {
   addCustomStatus,
   BASE_STATUSES,
@@ -19,6 +19,19 @@ import {
   type AppData,
 } from './inventory'
 import type { MaterialRecord } from './inventory'
+import { Badge } from './components/ui/badge'
+import { Button } from './components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
+import { Input } from './components/ui/input'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from './components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
+import { Textarea } from './components/ui/textarea'
 
 type AppTab = 'scan' | 'list' | 'settings'
 
@@ -198,6 +211,9 @@ function App() {
     setScanInfo(`Материал удален: ${targetLabel}`)
   }
 
+  const statusSelectClassName =
+    'border-input bg-background text-foreground h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+
   const handleAddCustomStatus = () => {
     const result = addCustomStatus(data, newCustomStatus)
     if (result.error) {
@@ -260,254 +276,255 @@ function App() {
   }
 
   const renderMaterialCard = () => {
-    if (!selectedMaterial) {
-      return (
-        <section className="panel">
-          <h2>Карточка материала</h2>
-          <p className="muted">Выберите запись из списка или отсканируйте QR</p>
-        </section>
-      )
-    }
+    if (!selectedMaterial) return null
 
-  return (
-      <section className="panel">
-        <div className="card-head">
-          <h2>Карточка материала</h2>
-          <span className="chip">ID: {selectedMaterial.id.slice(0, 8)}</span>
-        </div>
+    return (
+      <Sheet open={Boolean(selectedMaterialId)} onOpenChange={(open) => !open && setSelectedMaterialId(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{selectedMaterial.name || 'Материал без названия'}</SheetTitle>
+            <SheetDescription className="flex items-center gap-2">
+              <span>{selectedMaterial.qrCode}</span>
+              <Badge variant="outline">{selectedMaterial.status}</Badge>
+            </SheetDescription>
+          </SheetHeader>
 
-        <div className="field-group">
-          <label>QR-код</label>
-          <input value={selectedMaterial.qrCode} readOnly />
-        </div>
+          <div className="mt-4 flex-1 space-y-4 overflow-y-auto pr-1">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Название</label>
+              <Input
+                value={selectedMaterial.name}
+                onChange={(event) =>
+                  handleUpdateMaterial(selectedMaterial.id, { name: event.target.value })
+                }
+                placeholder="Например: Смола LOT-45"
+              />
+            </div>
 
-        <div className="two-columns">
-          <div className="field-group">
-            <label>Название</label>
-            <input
-              value={selectedMaterial.name}
-              onChange={(event) =>
-                handleUpdateMaterial(selectedMaterial.id, { name: event.target.value })
-              }
-              placeholder="Например: Смола LOT-45"
-            />
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Категория</label>
+              <Input
+                list="category-options"
+                value={selectedMaterial.category}
+                onChange={(event) =>
+                  handleUpdateMaterial(selectedMaterial.id, { category: event.target.value })
+                }
+                placeholder="Категория"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Статус (автосохранение)</label>
+              <select
+                className={statusSelectClassName}
+                value={manualStatus}
+                onChange={(event) => handleManualStatusChange(event.target.value)}
+              >
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Комментарий</label>
+              <Textarea
+                value={selectedMaterial.comment}
+                onChange={(event) =>
+                  handleUpdateMaterial(selectedMaterial.id, { comment: event.target.value })
+                }
+                placeholder="Дополнительные заметки"
+                rows={3}
+              />
+            </div>
+
+            <div className="text-muted-foreground text-xs">
+              Создан: {formatDateTime(selectedMaterial.createdAt)}
+            </div>
+            <div className="text-muted-foreground text-xs">
+              Обновлен: {formatDateTime(selectedMaterial.updatedAt)}
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">История изменений</div>
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-2">
+                {selectedMaterial.history
+                  .slice()
+                  .reverse()
+                  .map((historyItem) => (
+                    <div key={historyItem.id} className="rounded-md border p-2 text-sm">
+                      <div className="font-medium">
+                        {historyItem.fromStatus ?? 'нет'} {'->'} {historyItem.toStatus}
+                      </div>
+                      <div className="text-muted-foreground text-xs">{formatDateTime(historyItem.at)}</div>
+                      <div className="text-muted-foreground text-xs">Источник: {historyItem.source}</div>
+                      {historyItem.comment ? <div>{historyItem.comment}</div> : null}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <Button
+              variant="destructive"
+              onClick={() => handleDeleteMaterial(selectedMaterial.id)}
+              className="w-full"
+            >
+              <Trash2 className="size-4" />
+              Удалить материал
+            </Button>
           </div>
-          <div className="field-group">
-            <label>Категория</label>
-            <input
-              list="category-options"
-              value={selectedMaterial.category}
-              onChange={(event) =>
-                handleUpdateMaterial(selectedMaterial.id, { category: event.target.value })
-              }
-              placeholder="Категория"
-            />
-          </div>
-        </div>
-
-        <div className="two-columns">
-          <div className="field-group">
-            <label>Текущий статус</label>
-            <select value={manualStatus} onChange={(event) => handleManualStatusChange(event.target.value)}>
-              {statuses.map((status) => (
-                <option value={status} key={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="button-row">
-          <button
-            className="button danger"
-            onClick={() => handleDeleteMaterial(selectedMaterial.id)}
-          >
-            Удалить материал
-          </button>
-        </div>
-
-        <div className="field-group">
-          <label>Комментарий по материалу</label>
-          <textarea
-            value={selectedMaterial.comment}
-            onChange={(event) =>
-              handleUpdateMaterial(selectedMaterial.id, { comment: event.target.value })
-            }
-            rows={3}
-            placeholder="Дополнительные заметки"
-          />
-        </div>
-
-        <p className="meta">
-          Создан: {formatDateTime(selectedMaterial.createdAt)} | Обновлен:{' '}
-          {formatDateTime(selectedMaterial.updatedAt)}
-        </p>
-
-        <h3>История изменений</h3>
-        <div className="history-list">
-          {selectedMaterial.history
-            .slice()
-            .reverse()
-            .map((historyItem) => (
-              <article className="history-item" key={historyItem.id}>
-                <div>
-                  <strong>
-                    {historyItem.fromStatus ?? 'нет'} → {historyItem.toStatus}
-                  </strong>
-                </div>
-                <div className="meta">{formatDateTime(historyItem.at)}</div>
-                <div className="meta">Источник: {historyItem.source}</div>
-                {historyItem.comment ? <div>{historyItem.comment}</div> : null}
-              </article>
-            ))}
-        </div>
-      </section>
+        </SheetContent>
+      </Sheet>
     )
   }
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <p className="badge">MVP • Offline Ready</p>
-        <h1>Склад Материалов 3D Форм</h1>
-        <p>
-          Быстрый учет по QR: сканирование, смена статусов, история, экспорт и импорт без
-          сервера.
-        </p>
-      </header>
+    <div className="mx-auto min-h-screen w-full max-w-5xl px-3 py-4 md:px-4">
+      <Card className="mb-3 border-none bg-gradient-to-br from-amber-100 via-lime-50 to-emerald-100 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl">Склад Материалов 3D Форм</CardTitle>
+          <CardDescription>
+            Компактный workflow: сканируй, фильтруй, открывай карточку в боковой панели.
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
-      <nav className="tab-row">
-        <button
-          className={`tab-button ${activeTab === 'scan' ? 'is-active' : ''}`}
-          onClick={() => setActiveTab('scan')}
-        >
-          Сканирование
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'list' ? 'is-active' : ''}`}
-          onClick={() => setActiveTab('list')}
-        >
-          Материалы ({data.materials.length})
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'settings' ? 'is-active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          Настройки
-        </button>
-      </nav>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AppTab)}>
+        <TabsList>
+          <TabsTrigger value="scan">
+            <QrCode className="size-4" />
+            Сканирование
+          </TabsTrigger>
+          <TabsTrigger value="list">
+            <Database className="size-4" />
+            Материалы ({data.materials.length})
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings className="size-4" />
+            Настройки
+          </TabsTrigger>
+        </TabsList>
 
-      <main className="content-stack">
-        {activeTab === 'scan' ? (
-          <section className="panel">
-            <h2>Экран сканирования</h2>
-            <p className="muted">{scanInfo}</p>
-            {!window.isSecureContext ? (
-              <div className="camera-warning">
-                <strong>Камера на телефоне не будет запрошена в HTTP.</strong>
-                <p>
-                  Откройте приложение через HTTPS (или localhost). Текущий адрес:{' '}
+        <TabsContent value="scan" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Camera className="size-4" />
+                Быстрое сканирование
+              </CardTitle>
+              <CardDescription>{scanInfo}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {!window.isSecureContext ? (
+                <div className="rounded-md border border-orange-300 bg-orange-50 p-3 text-sm text-orange-900">
+                  Камера на телефоне требует HTTPS или localhost. Текущий адрес:
+                  {' '}
                   {window.location.protocol}//{window.location.host}
-                </p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={!window.isSecureContext}
+                  onClick={() => setCameraEnabled((prev) => !prev)}
+                >
+                  {cameraEnabled ? 'Остановить камеру' : 'Запустить камеру'}
+                </Button>
+                <Button variant="outline" onClick={probeCameraAccess}>
+                  Проверить доступ
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCameraEnabled(false)
+                    setScanInfo('Камера остановлена')
+                  }}
+                >
+                  Сброс
+                </Button>
               </div>
-            ) : null}
 
-            <div className="button-row">
-              <button
-                className="button"
-                disabled={!window.isSecureContext}
-                onClick={() => setCameraEnabled((prev) => !prev)}
-              >
-                {cameraEnabled ? 'Остановить камеру' : 'Запустить камеру'}
-              </button>
-              <button className="button ghost" onClick={probeCameraAccess}>
-                Проверить доступ к камере
-              </button>
-              <button
-                className="button ghost"
-                onClick={() => {
-                  setCameraEnabled(false)
-                  setScanInfo('Камера остановлена')
-                }}
-              >
-                Сброс
-              </button>
-            </div>
-
-            {cameraEnabled ? (
-              <div className="scanner-wrap">
-                <Scanner
-                  constraints={{ facingMode: 'environment' }}
-                  onScan={(codes) => handleDetected(codes as Array<{ rawValue?: string }>)}
-                  formats={[
-                    'qr_code',
-                    'code_128',
-                    'code_39',
-                    'code_93',
-                    'codabar',
-                    'ean_13',
-                    'ean_8',
-                    'itf',
-                    'upc_a',
-                    'upc_e',
-                  ]}
-                  allowMultiple
-                />
-              </div>
-            ) : (
-              <p className="muted">Камера выключена</p>
-            )}
-
-            <div className="field-group">
-              <label>Ручной ввод QR (fallback для теста без камеры)</label>
-              <div className="button-row">
-                <input
-                  value={manualQr}
-                  onChange={(event) => setManualQr(event.target.value)}
-                  placeholder="Вставьте строку QR"
-                />
-                <button className="button" onClick={handleManualQrSubmit}>
-                  Обработать QR
-                </button>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === 'list' ? (
-          <>
-            <section className="panel">
-              <h2>Список материалов</h2>
-              <div className="two-columns">
-                <div className="field-group">
-                  <label>Поиск</label>
-                  <input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="QR, название, категория, комментарий"
+              {cameraEnabled ? (
+                <div className="overflow-hidden rounded-lg border">
+                  <Scanner
+                    constraints={{ facingMode: 'environment' }}
+                    onScan={(codes) => handleDetected(codes as Array<{ rawValue?: string }>)}
+                    formats={[
+                      'qr_code',
+                      'code_128',
+                      'code_39',
+                      'code_93',
+                      'codabar',
+                      'ean_13',
+                      'ean_8',
+                      'itf',
+                      'upc_a',
+                      'upc_e',
+                    ]}
+                    allowMultiple
                   />
                 </div>
-                <div className="field-group">
-                  <label>Фильтр по статусу</label>
-                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                    <option value="all">Все</option>
-                    {statuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
+              ) : (
+                <div className="text-muted-foreground rounded-md border border-dashed p-6 text-center text-sm">
+                  Камера выключена
+                </div>
+              )}
+
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Ручной ввод кода</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={manualQr}
+                    onChange={(event) => setManualQr(event.target.value)}
+                    placeholder="Вставьте значение QR/штрихкода"
+                  />
+                  <Button onClick={handleManualQrSubmit}>Добавить</Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <div className="field-group">
-                <label>Фильтр по категории</label>
+        <TabsContent value="list" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Search className="size-4" />
+                Список материалов
+              </CardTitle>
+              <CardDescription>
+                Нажми на запись, чтобы открыть карточку в панели справа/снизу.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-2 md:grid-cols-3">
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Поиск: QR, имя, категория"
+                />
+
                 <select
+                  className={statusSelectClassName}
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                >
+                  <option value="all">Все статусы</option>
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className={statusSelectClassName}
                   value={categoryFilter}
                   onChange={(event) => setCategoryFilter(event.target.value)}
                 >
-                  <option value="all">Все</option>
+                  <option value="all">Все категории</option>
                   {categories.map((category) => (
                     <option key={category} value={category}>
                       {category}
@@ -516,140 +533,148 @@ function App() {
                 </select>
               </div>
 
-              <div className="material-list">
+              <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
                 {filteredMaterials.length === 0 ? (
-                  <p className="muted">Ничего не найдено</p>
+                  <div className="text-muted-foreground rounded-md border border-dashed p-6 text-center text-sm">
+                    Ничего не найдено
+                  </div>
                 ) : (
                   filteredMaterials.map((material) => (
-                    <article
-                      className={`material-item ${
-                        selectedMaterialId === material.id ? 'is-selected' : ''
-                      }`}
+                    <div
                       key={material.id}
+                      className="bg-card hover:bg-muted/40 flex w-full cursor-pointer items-start justify-between rounded-lg border p-3 text-left"
+                      onClick={() => setSelectedMaterialId(material.id)}
                     >
-                      <div>
-                        <strong>{material.name || '(без названия)'}</strong>
-                        <div className="meta">{material.qrCode}</div>
+                      <div className="space-y-1">
+                        <div className="font-medium">{material.name || '(без названия)'}</div>
+                        <div className="text-muted-foreground text-xs">{material.qrCode}</div>
+                        <div className="text-muted-foreground text-xs">
+                          {material.category} • {formatDateTime(material.updatedAt)}
+                        </div>
                       </div>
-                      <div className="meta">
-                        {material.category} • {material.status}
-                      </div>
-                      <div className="button-row">
-                        <button className="button small" onClick={() => setSelectedMaterialId(material.id)}>
-                          Открыть карточку
-                        </button>
-                        <button
-                          className="button small danger"
-                          onClick={() => handleDeleteMaterial(material.id)}
+
+                      <div className="ml-3 flex flex-col items-end gap-2">
+                        <Badge variant="outline">{material.status}</Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleDeleteMaterial(material.id)
+                          }}
                         >
-                          Удалить
-                        </button>
+                          <Trash2 className="size-4 text-red-600" />
+                        </Button>
                       </div>
-                    </article>
+                    </div>
                   ))
                 )}
               </div>
-            </section>
+            </CardContent>
+          </Card>
+          {renderMaterialCard()}
+        </TabsContent>
 
-            {renderMaterialCard()}
-          </>
-        ) : null}
-
-        {activeTab === 'settings' ? (
-          <section className="panel">
-            <h2>Настройки и справочники</h2>
-            <p className="muted">{settingsInfo || 'Управление статусами и перенос базы между устройствами'}</p>
-
-            <div className="field-group">
-              <label>Поведение при повторном сканировании</label>
-              <select
-                value={data.settings.repeatScanMode}
-                onChange={(event) => {
-                  const mode = event.target.value as AppData['settings']['repeatScanMode']
-                  setData((prev) => ({
-                    ...prev,
-                    settings: {
-                      ...prev.settings,
-                      repeatScanMode: mode,
-                    },
-                  }))
-                }}
-              >
-                <option value="open-card">Открывать карточку записи</option>
-                <option value="auto-status">Автоматически менять статус</option>
-              </select>
-            </div>
-
-            {data.settings.repeatScanMode === 'auto-status' ? (
-              <div className="field-group">
-                <label>Статус для авто-сценария</label>
+        <TabsContent value="settings" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Настройки и справочники</CardTitle>
+              <CardDescription>
+                {settingsInfo || 'Управление статусами, экспорт и импорт базы'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Поведение при повторном сканировании</label>
                 <select
-                  value={data.settings.autoScanStatus}
+                  className={statusSelectClassName}
+                  value={data.settings.repeatScanMode}
                   onChange={(event) => {
-                    const nextStatus = event.target.value
+                    const mode = event.target.value as AppData['settings']['repeatScanMode']
                     setData((prev) => ({
                       ...prev,
                       settings: {
                         ...prev.settings,
-                        autoScanStatus: nextStatus,
+                        repeatScanMode: mode,
                       },
                     }))
                   }}
                 >
-                  {statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
+                  <option value="open-card">Открывать карточку записи</option>
+                  <option value="auto-status">Автоматически менять статус</option>
                 </select>
               </div>
-            ) : null}
 
-            <div className="field-group">
-              <label>Добавить кастомный статус</label>
-              <div className="button-row">
-                <input
-                  value={newCustomStatus}
-                  onChange={(event) => setNewCustomStatus(event.target.value)}
-                  placeholder="Например: на карантине"
-                />
-                <button className="button" onClick={handleAddCustomStatus}>
-                  Добавить
-                </button>
-              </div>
-            </div>
-
-            <div className="status-list">
-              {statuses.map((status) => (
-                <div className="status-item" key={status}>
-                  <span>{status}</span>
-                  {BASE_STATUSES.includes(status as (typeof BASE_STATUSES)[number]) ? (
-                    <span className="chip">базовый</span>
-                  ) : (
-                    <button className="button small ghost" onClick={() => handleRemoveCustomStatus(status)}>
-                      Удалить
-                    </button>
-                  )}
+              {data.settings.repeatScanMode === 'auto-status' ? (
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Статус для авто-сценария</label>
+                  <select
+                    className={statusSelectClassName}
+                    value={data.settings.autoScanStatus}
+                    onChange={(event) => {
+                      const nextStatus = event.target.value
+                      setData((prev) => ({
+                        ...prev,
+                        settings: {
+                          ...prev.settings,
+                          autoScanStatus: nextStatus,
+                        },
+                      }))
+                    }}
+                  >
+                    {statuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))}
-            </div>
+              ) : null}
 
-            <div className="button-row">
-              <button className="button" onClick={handleExport}>
-                Экспорт JSON
-              </button>
-              <label className="button ghost file-upload">
-                Импорт JSON
-                <input type="file" accept="application/json" onChange={handleImport} />
-              </label>
-            </div>
-          </section>
-        ) : null}
-      </main>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Добавить кастомный статус</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newCustomStatus}
+                    onChange={(event) => setNewCustomStatus(event.target.value)}
+                    placeholder="Например: на карантине"
+                  />
+                  <Button onClick={handleAddCustomStatus}>Добавить</Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {statuses.map((status) => (
+                  <div key={status} className="flex items-center justify-between rounded-md border p-2">
+                    <span className="text-sm">{status}</span>
+                    {BASE_STATUSES.includes(status as (typeof BASE_STATUSES)[number]) ? (
+                      <Badge variant="secondary">базовый</Badge>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => handleRemoveCustomStatus(status)}>
+                        Удалить
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleExport}>Экспорт JSON</Button>
+                <Button variant="outline" asChild>
+                  <label>
+                    Импорт JSON
+                    <input className="hidden" type="file" accept="application/json" onChange={handleImport} />
+                  </label>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <datalist id="category-options">
         {categories.map((category) => (
-          <option value={category} key={category} />
+          <option key={category} value={category} />
         ))}
       </datalist>
     </div>

@@ -1,33 +1,64 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
 :root {
-  font-family: Bahnschrift, 'Trebuchet MS', Tahoma, sans-serif;
-  line-height: 1.4;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f766e;
+  --primary-foreground: #f8fafc;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --accent: #ccfbf1;
+  --accent-foreground: #115e59;
+  --destructive: #dc2626;
+  --border: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #14b8a6;
+  --radius: 0.65rem;
 }
 
 * {
-  box-sizing: border-box;
+  @apply border-border;
 }
 
 html,
 body,
 #root {
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
+  @apply bg-background text-foreground;
   margin: 0;
-  background:
-    radial-gradient(circle at 85% 10%, rgba(203, 230, 213, 0.55), transparent 35%),
-    radial-gradient(circle at 10% 0%, rgba(255, 230, 188, 0.68), transparent 45%),
-    linear-gradient(180deg, #f9f4e8, #f2ece2);
-  color: #2e2518;
-}
-
-button {
-  font: inherit;
-  cursor: pointer;
+  font-family: 'Segoe UI', 'Noto Sans', sans-serif;
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(20, 184, 166, 0.08), transparent 32%),
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.08), transparent 28%);
 }
