@@ -45,6 +45,7 @@ export interface MaterialRecord {
 
 export interface AppSettings {
   customStatuses: string[]
+  customCategories: string[]
   repeatScanMode: RepeatScanMode
   autoScanStatus: string
 }
@@ -69,6 +70,7 @@ export interface ImportValidationResult {
 
 const DEFAULT_SETTINGS: AppSettings = {
   customStatuses: [],
+  customCategories: [],
   repeatScanMode: 'open-card',
   autoScanStatus: BASE_STATUSES[1],
 }
@@ -106,6 +108,10 @@ function uniqueNormalized(values: string[]): string[] {
 
 export function getAllStatuses(settings: AppSettings): string[] {
   return uniqueNormalized([...BASE_STATUSES, ...settings.customStatuses])
+}
+
+export function getAllCategories(settings: AppSettings): string[] {
+  return uniqueNormalized([...DEFAULT_CATEGORIES, ...settings.customCategories])
 }
 
 function buildDefaultData(): AppData {
@@ -321,6 +327,31 @@ export function addCustomStatus(
   }
 }
 
+export function addCustomCategory(
+  data: AppData,
+  category: string,
+): { nextData: AppData; error?: string } {
+  const normalized = category.trim()
+  if (!normalized) {
+    return { nextData: data, error: 'Введите непустую категорию' }
+  }
+
+  const categories = getAllCategories(data.settings)
+  if (categories.some((item) => item.toLocaleLowerCase('ru-RU') === normalized.toLocaleLowerCase('ru-RU'))) {
+    return { nextData: data, error: 'Такая категория уже существует' }
+  }
+
+  return {
+    nextData: {
+      ...data,
+      settings: {
+        ...data.settings,
+        customCategories: [...data.settings.customCategories, normalized],
+      },
+    },
+  }
+}
+
 export function removeCustomStatus(
   data: AppData,
   status: string,
@@ -343,6 +374,33 @@ export function removeCustomStatus(
       settings: {
         ...data.settings,
         customStatuses: data.settings.customStatuses.filter((item) => item !== status),
+      },
+    },
+  }
+}
+
+export function removeCustomCategory(
+  data: AppData,
+  category: string,
+): { nextData: AppData; error?: string } {
+  if (DEFAULT_CATEGORIES.includes(category)) {
+    return { nextData: data, error: 'Базовые категории нельзя удалить' }
+  }
+
+  const inUse = data.materials.some((material) => material.category === category)
+  if (inUse) {
+    return {
+      nextData: data,
+      error: 'Категория используется в материалах. Сначала смените ее в карточках.',
+    }
+  }
+
+  return {
+    nextData: {
+      ...data,
+      settings: {
+        ...data.settings,
+        customCategories: data.settings.customCategories.filter((item) => item !== category),
       },
     },
   }
@@ -433,11 +491,29 @@ export function validateImportData(raw: unknown): ImportValidationResult {
       : [],
   )
 
+  const customCategories = uniqueNormalized(
+    Array.isArray(settingsRaw.customCategories)
+      ? settingsRaw.customCategories.map((item) => asString(item))
+      : [],
+  )
+
   const settings: AppSettings = {
     customStatuses,
+    customCategories,
     repeatScanMode: validMode,
     autoScanStatus: asString(settingsRaw.autoScanStatus) || BASE_STATUSES[1],
   }
+
+  const importedNonDefaultCategories = uniqueNormalized(
+    materials
+      .map((material) => material.category)
+      .filter((category) => category && !DEFAULT_CATEGORIES.includes(category)),
+  )
+
+  settings.customCategories = uniqueNormalized([
+    ...settings.customCategories,
+    ...importedNonDefaultCategories,
+  ])
 
   const statuses = getAllStatuses(settings)
   const materialQrs = new Set<string>()

@@ -3,15 +3,17 @@ import type { ChangeEvent } from 'react'
 import { Camera, Database, QrCode, Search, Settings, Trash2 } from 'lucide-react'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import {
+  addCustomCategory,
   addCustomStatus,
   BASE_STATUSES,
   changeMaterialStatus,
   deleteMaterial,
-  DEFAULT_CATEGORIES,
   formatDateTime,
+  getAllCategories,
   getAllStatuses,
   loadData,
   processScan,
+  removeCustomCategory,
   removeCustomStatus,
   saveData,
   updateMaterialFields,
@@ -49,6 +51,7 @@ function App() {
   const [manualStatus, setManualStatus] = useState<string>(BASE_STATUSES[0])
 
   const [newCustomStatus, setNewCustomStatus] = useState('')
+  const [newCustomCategory, setNewCustomCategory] = useState('')
   const [settingsInfo, setSettingsInfo] = useState('')
 
   const lastScanRef = useRef({ qrCode: '', timestamp: 0 })
@@ -56,7 +59,7 @@ function App() {
   const statuses = useMemo(() => getAllStatuses(data.settings), [data.settings])
 
   const categories = useMemo(() => {
-    const set = new Set<string>(DEFAULT_CATEGORIES)
+    const set = new Set<string>(getAllCategories(data.settings))
     for (const material of data.materials) {
       if (material.category.trim()) {
         set.add(material.category.trim())
@@ -226,6 +229,18 @@ function App() {
     setSettingsInfo('Статус добавлен')
   }
 
+  const handleAddCustomCategory = () => {
+    const result = addCustomCategory(data, newCustomCategory)
+    if (result.error) {
+      setSettingsInfo(result.error)
+      return
+    }
+
+    setData(result.nextData)
+    setNewCustomCategory('')
+    setSettingsInfo('Категория добавлена')
+  }
+
   const handleRemoveCustomStatus = (status: string) => {
     const result = removeCustomStatus(data, status)
     if (result.error) {
@@ -235,6 +250,61 @@ function App() {
 
     setData(result.nextData)
     setSettingsInfo(`Статус «${status}» удален`)
+  }
+
+  const handleRemoveCustomCategory = (category: string) => {
+    const result = removeCustomCategory(data, category)
+    if (result.error) {
+      setSettingsInfo(result.error)
+      return
+    }
+
+    setData(result.nextData)
+    setSettingsInfo(`Категория «${category}» удалена`)
+  }
+
+  const getStatusColorClasses = (status: string) => {
+    const normalized = status.toLocaleLowerCase('ru-RU')
+
+    if (normalized === 'новый') {
+      return {
+        badge: 'border-sky-300 bg-sky-50 text-sky-700',
+        card: 'border-l-4 border-l-sky-500',
+      }
+    }
+
+    if (normalized === 'открытый') {
+      return {
+        badge: 'border-amber-300 bg-amber-50 text-amber-700',
+        card: 'border-l-4 border-l-amber-500',
+      }
+    }
+
+    if (normalized === 'в использовании') {
+      return {
+        badge: 'border-violet-300 bg-violet-50 text-violet-700',
+        card: 'border-l-4 border-l-violet-500',
+      }
+    }
+
+    if (normalized === 'использован') {
+      return {
+        badge: 'border-emerald-300 bg-emerald-50 text-emerald-700',
+        card: 'border-l-4 border-l-emerald-500',
+      }
+    }
+
+    if (normalized === 'списан') {
+      return {
+        badge: 'border-rose-300 bg-rose-50 text-rose-700',
+        card: 'border-l-4 border-l-rose-500',
+      }
+    }
+
+    return {
+      badge: 'border-slate-300 bg-slate-50 text-slate-700',
+      card: 'border-l-4 border-l-slate-400',
+    }
   }
 
   const handleExport = () => {
@@ -285,7 +355,9 @@ function App() {
             <SheetTitle>{selectedMaterial.name || 'Материал без названия'}</SheetTitle>
             <SheetDescription className="flex items-center gap-2">
               <span>{selectedMaterial.qrCode}</span>
-              <Badge variant="outline">{selectedMaterial.status}</Badge>
+                <Badge variant="outline" className={getStatusColorClasses(selectedMaterial.status).badge}>
+                  {selectedMaterial.status}
+                </Badge>
             </SheetDescription>
           </SheetHeader>
 
@@ -303,14 +375,19 @@ function App() {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Категория</label>
-              <Input
-                list="category-options"
+              <select
+                className={statusSelectClassName}
                 value={selectedMaterial.category}
                 onChange={(event) =>
                   handleUpdateMaterial(selectedMaterial.id, { category: event.target.value })
                 }
-                placeholder="Категория"
-              />
+              >
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="grid gap-2">
@@ -542,7 +619,7 @@ function App() {
                   filteredMaterials.map((material) => (
                     <div
                       key={material.id}
-                      className="bg-card hover:bg-muted/40 flex w-full cursor-pointer items-start justify-between rounded-lg border p-3 text-left"
+                      className={`bg-card hover:bg-muted/40 flex w-full cursor-pointer items-start justify-between rounded-lg border p-3 text-left ${getStatusColorClasses(material.status).card}`}
                       onClick={() => setSelectedMaterialId(material.id)}
                     >
                       <div className="space-y-1">
@@ -554,7 +631,9 @@ function App() {
                       </div>
 
                       <div className="ml-3 flex flex-col items-end gap-2">
-                        <Badge variant="outline">{material.status}</Badge>
+                        <Badge variant="outline" className={getStatusColorClasses(material.status).badge}>
+                          {material.status}
+                        </Badge>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -648,9 +727,38 @@ function App() {
                   <div key={status} className="flex items-center justify-between rounded-md border p-2">
                     <span className="text-sm">{status}</span>
                     {BASE_STATUSES.includes(status as (typeof BASE_STATUSES)[number]) ? (
-                      <Badge variant="secondary">базовый</Badge>
+                      <Badge variant="secondary" className={getStatusColorClasses(status).badge}>
+                        базовый
+                      </Badge>
                     ) : (
                       <Button variant="outline" size="sm" onClick={() => handleRemoveCustomStatus(status)}>
+                        Удалить
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Добавить категорию</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newCustomCategory}
+                    onChange={(event) => setNewCustomCategory(event.target.value)}
+                    placeholder="Например: расходники"
+                  />
+                  <Button onClick={handleAddCustomCategory}>Добавить</Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {categories.map((category) => (
+                  <div key={category} className="flex items-center justify-between rounded-md border p-2">
+                    <span className="text-sm">{category}</span>
+                    {!data.settings.customCategories.includes(category) ? (
+                      <Badge variant="secondary">базовая</Badge>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => handleRemoveCustomCategory(category)}>
                         Удалить
                       </Button>
                     )}
@@ -671,12 +779,6 @@ function App() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <datalist id="category-options">
-        {categories.map((category) => (
-          <option key={category} value={category} />
-        ))}
-      </datalist>
     </div>
   )
 }
