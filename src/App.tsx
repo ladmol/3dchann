@@ -32,6 +32,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from './components/ui/sheet'
+import { Switch } from './components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
 import { Textarea } from './components/ui/textarea'
 
@@ -104,17 +105,27 @@ function App() {
     const nextResult = processScan(data, scannedCode)
     setData(nextResult.nextData)
 
-    setSelectedMaterialId(nextResult.result.materialId)
+    const shouldAutoOpen = data.settings.autoOpenCardOnScan
+
+    if (shouldAutoOpen) {
+      setSelectedMaterialId(nextResult.result.materialId)
+    } else {
+      setSelectedMaterialId(null)
+    }
 
     if (nextResult.result.kind === 'created') {
       setScanInfo(`Новый материал добавлен: ${scannedCode}`)
-      setActiveTab('list')
+      if (shouldAutoOpen) {
+        setActiveTab('list')
+      }
       return
     }
 
     if (nextResult.result.kind === 'existing') {
       setScanInfo(`QR найден: ${scannedCode}`)
-      setActiveTab('list')
+      if (shouldAutoOpen) {
+        setActiveTab('list')
+      }
       return
     }
 
@@ -682,6 +693,48 @@ function App() {
                   <option value="open-card">Открывать карточку записи</option>
                   <option value="auto-status">Автоматически менять статус</option>
                 </select>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5 pr-4">
+                  <div className="text-sm font-medium">Автоматически открывать карточку после сканирования</div>
+                  <div className="text-muted-foreground text-xs">
+                    Выключите для быстрого поточного сканирования без открытия карточек.
+                  </div>
+                </div>
+                <Switch
+                  checked={data.settings.autoOpenCardOnScan}
+                  onCheckedChange={(checked) => {
+                    setData((prev) => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        autoOpenCardOnScan: checked,
+                      },
+                    }))
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5 pr-4">
+                  <div className="text-sm font-medium">При повторном сканировании двигать статус дальше</div>
+                  <div className="text-muted-foreground text-xs">
+                    Каждый повторный скан переводит материал на следующий статус.
+                  </div>
+                </div>
+                <Switch
+                  checked={data.settings.advanceStatusOnRepeatScan}
+                  onCheckedChange={(checked) => {
+                    setData((prev) => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        advanceStatusOnRepeatScan: checked,
+                      },
+                    }))
+                  }}
+                />
               </div>
 
               {data.settings.repeatScanMode === 'auto-status' ? (

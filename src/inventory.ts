@@ -48,6 +48,8 @@ export interface AppSettings {
   customCategories: string[]
   repeatScanMode: RepeatScanMode
   autoScanStatus: string
+  autoOpenCardOnScan: boolean
+  advanceStatusOnRepeatScan: boolean
 }
 
 export interface AppData {
@@ -73,6 +75,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   customCategories: [],
   repeatScanMode: 'open-card',
   autoScanStatus: BASE_STATUSES[1],
+  autoOpenCardOnScan: true,
+  advanceStatusOnRepeatScan: false,
 }
 
 const DEFAULT_DATA: AppData = {
@@ -200,6 +204,38 @@ export function processScan(
 
   if (existingIndex !== -1) {
     const existing = data.materials[existingIndex]
+
+    if (data.settings.advanceStatusOnRepeatScan) {
+      const statuses = getAllStatuses(data.settings)
+      const currentIndex = statuses.findIndex((status) => status === existing.status)
+      const nextIndex = currentIndex >= 0 ? Math.min(currentIndex + 1, statuses.length - 1) : 0
+      const targetStatus = statuses[nextIndex]
+
+      const updatedMaterial = updateStatusOnMaterial(
+        existing,
+        targetStatus,
+        'scan-repeat',
+        'Повторное сканирование: следующий статус',
+      )
+
+      if (updatedMaterial === existing) {
+        return {
+          nextData: data,
+          result: { kind: 'existing', materialId: existing.id },
+        }
+      }
+
+      const nextMaterials = [...data.materials]
+      nextMaterials[existingIndex] = updatedMaterial
+
+      return {
+        nextData: {
+          ...data,
+          materials: nextMaterials,
+        },
+        result: { kind: 'auto-updated', materialId: existing.id, status: targetStatus },
+      }
+    }
 
     if (data.settings.repeatScanMode === 'open-card') {
       return {
@@ -502,6 +538,8 @@ export function validateImportData(raw: unknown): ImportValidationResult {
     customCategories,
     repeatScanMode: validMode,
     autoScanStatus: asString(settingsRaw.autoScanStatus) || BASE_STATUSES[1],
+    autoOpenCardOnScan: Boolean(settingsRaw.autoOpenCardOnScan ?? true),
+    advanceStatusOnRepeatScan: Boolean(settingsRaw.advanceStatusOnRepeatScan ?? false),
   }
 
   const importedNonDefaultCategories = uniqueNormalized(
