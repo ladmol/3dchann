@@ -289,6 +289,13 @@ export function changeMaterialStatus(
   }
 }
 
+export function deleteMaterial(data: AppData, materialId: string): AppData {
+  return {
+    ...data,
+    materials: data.materials.filter((material) => material.id !== materialId),
+  }
+}
+
 export function addCustomStatus(
   data: AppData,
   status: string,

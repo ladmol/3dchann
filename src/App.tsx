@@ -6,6 +6,7 @@ import {
   addCustomStatus,
   BASE_STATUSES,
   changeMaterialStatus,
+  deleteMaterial,
   DEFAULT_CATEGORIES,
   formatDateTime,
   getAllStatuses,
@@ -178,6 +179,27 @@ function App() {
     setStatusComment('')
   }
 
+  const handleDeleteMaterial = (materialId: string) => {
+    const material = data.materials.find((item) => item.id === materialId)
+    if (!material) {
+      return
+    }
+
+    const targetLabel = material.name.trim() ? material.name : material.qrCode
+    const confirmed = window.confirm(`Удалить материал «${targetLabel}»? Действие необратимо.`)
+    if (!confirmed) {
+      return
+    }
+
+    setData((prev) => deleteMaterial(prev, materialId))
+
+    if (selectedMaterialId === materialId) {
+      setSelectedMaterialId(null)
+    }
+
+    setScanInfo(`Материал удален: ${targetLabel}`)
+  }
+
   const handleAddCustomStatus = () => {
     const result = addCustomStatus(data, newCustomStatus)
     if (result.error) {
@@ -309,6 +331,12 @@ function App() {
         <div className="button-row">
           <button className="button" onClick={handleChangeStatus}>
             Применить статус вручную
+          </button>
+          <button
+            className="button danger"
+            onClick={() => handleDeleteMaterial(selectedMaterial.id)}
+          >
+            Удалить материал
           </button>
         </div>
 
@@ -522,6 +550,12 @@ function App() {
                       <div className="button-row">
                         <button className="button small" onClick={() => setSelectedMaterialId(material.id)}>
                           Открыть карточку
+                        </button>
+                        <button
+                          className="button small danger"
+                          onClick={() => handleDeleteMaterial(material.id)}
+                        >
+                          Удалить
                         </button>
                       </div>
                     </article>

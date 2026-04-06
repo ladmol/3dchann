@@ -156,6 +156,11 @@ textarea:focus {
   color: #5b4725;
 }
 
+.button.danger {
+  background: linear-gradient(120deg, #bd4a32, #8f3027);
+  border-color: #7b261f;
+}
+
 .button.small {
   padding: 7px 10px;
   font-size: 0.83rem;
