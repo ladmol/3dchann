@@ -812,27 +812,6 @@ function App() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium">Поведение при повторном сканировании</label>
-                <select
-                  className={statusSelectClassName}
-                  value={data.settings.repeatScanMode}
-                  onChange={(event) => {
-                    const mode = event.target.value as AppData['settings']['repeatScanMode']
-                    setData((prev) => ({
-                      ...prev,
-                      settings: {
-                        ...prev.settings,
-                        repeatScanMode: mode,
-                      },
-                    }))
-                  }}
-                >
-                  <option value="open-card">Открывать карточку записи</option>
-                  <option value="auto-status">Автоматически менять статус</option>
-                </select>
-              </div>
-
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div className="space-y-0.5 pr-4">
                   <div className="text-sm font-medium">Автоматически открывать карточку после сканирования</div>
@@ -875,39 +854,13 @@ function App() {
                 />
               </div>
 
-              {data.settings.repeatScanMode === 'auto-status' ? (
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">Статус для авто-сценария</label>
-                  <select
-                    className={statusSelectClassName}
-                    value={data.settings.autoScanStatus}
-                    onChange={(event) => {
-                      const nextStatus = event.target.value
-                      setData((prev) => ({
-                        ...prev,
-                        settings: {
-                          ...prev.settings,
-                          autoScanStatus: nextStatus,
-                        },
-                      }))
-                    }}
-                  >
-                    {statuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Добавить кастомный статус</label>
                 <div className="flex gap-2">
                   <Input
                     value={newCustomStatus}
                     onChange={(event) => setNewCustomStatus(event.target.value)}
-                    placeholder="Например: на карантине"
+                    placeholder="Например: новый"
                   />
                   <Button onClick={handleAddCustomStatus}>Добавить</Button>
                 </div>
