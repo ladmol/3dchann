@@ -1,73 +1,113 @@
-# React + TypeScript + Vite
+# Склад Материалов 3D Форм (MVP)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Мобильное PWA-приложение для учета складских материалов по QR-коду.
 
-Currently, two official plugins are available:
+## Что реализовано
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Сканирование QR камерой телефона.
+- Если QR новый: материал создается автоматически.
+- Если QR уже есть:
+  - режим 1: открыть карточку;
+  - режим 2: автоматически сменить статус.
+- Ручная смена статуса в карточке материала.
+- Кастомные статусы.
+- Поиск и фильтры по списку материалов.
+- История изменения статусов.
+- Экспорт базы в JSON.
+- Импорт базы из JSON с валидацией структуры.
+- Оффлайн-режим через PWA service worker.
 
-## React Compiler
+## Стек
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React + TypeScript + Vite.
+- `@yudiel/react-qr-scanner` для камеры и QR.
+- LocalStorage как локальная база (максимально быстро для MVP).
+- `vite-plugin-pwa` + Workbox для оффлайн-кеша.
 
-## Expanding the ESLint configuration
+## Структура проекта
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+.
+├─ index.html
+├─ package.json
+├─ vite.config.ts
+├─ public/
+│  └─ favicon.svg
+└─ src/
+   ├─ App.tsx              # UI: экраны, фильтры, карточка, настройки
+   ├─ App.css              # мобильный интерфейс
+   ├─ inventory.ts         # модель данных, бизнес-логика, импорт/экспорт
+   ├─ index.css            # глобальные стили
+   ├─ main.tsx             # запуск приложения + PWA registration
+   └─ vite-env.d.ts
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Запуск
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install
+pnpm dev
 ```
+
+Приложение откроется на `http://localhost:5173`.
+
+Для доступа с телефона в локальной сети:
+
+```bash
+pnpm dev -- --host
+```
+
+## Камера на телефоне: важно
+
+На мобильных браузерах `getUserMedia` (камера) работает только в безопасном контексте:
+
+- `https://...`
+- или `http://localhost` (локально на самом телефоне)
+
+Если открывать приложение с телефона по адресу вида `http://192.168.x.x:5173`, браузер обычно не покажет запрос разрешения на камеру.
+
+Практичные варианты для теста камеры:
+
+1. Поднять HTTPS-туннель до локального dev-сервера (например, cloudflared/ngrok) и открыть `https://...` ссылку на телефоне.
+2. Проверять логику учета через ручной ввод QR в самом приложении (fallback уже добавлен в экран сканирования).
+
+Для production-сборки:
+
+```bash
+pnpm build
+pnpm preview -- --host
+```
+
+## Формат данных экспорта
+
+Экспортируется один JSON-файл со структурой:
+
+- `version`
+- `materials[]`:
+  - `id`
+  - `qrCode`
+  - `name`
+  - `category`
+  - `status`
+  - `createdAt`
+  - `updatedAt`
+  - `history[]`
+  - `comment`
+- `settings`:
+  - `customStatuses[]`
+  - `repeatScanMode`
+  - `autoScanStatus`
+
+## Ограничения MVP
+
+- LocalStorage, а не IndexedDB/SQLite.
+- Без серверной синхронизации и многопользовательского режима.
+- Конфликты импорта/слияния баз не разбираются автоматически (импорт заменяет текущую базу).
+
+## Что улучшать потом
+
+- Перейти на IndexedDB для больших объемов данных.
+- Добавить режим слияния при импорте.
+- Добавить бэкап в облако и синхронизацию между устройствами.
+- Роли пользователей и журнал действий.
+- Аналитику остатков, отчеты и контроль минимальных остатков.
