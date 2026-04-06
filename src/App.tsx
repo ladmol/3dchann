@@ -202,34 +202,6 @@ function App() {
     processScannedQr(scannedCode)
   }
 
-  const probeCameraAccess = async () => {
-    if (!window.isSecureContext) {
-      setScanInfo(
-        `Камера доступна только в HTTPS/localhost. Сейчас: ${window.location.protocol}//${window.location.host}`,
-      )
-      return
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setScanInfo('Браузер не поддерживает MediaDevices/getUserMedia')
-      return
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-        },
-      })
-      stream.getTracks().forEach((track) => track.stop())
-      setScanInfo('Доступ к камере получен. Можно запускать сканер.')
-      setCameraEnabled(true)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setScanInfo(`Не удалось получить доступ к камере: ${message}`)
-    }
-  }
-
   const handleManualQrSubmit = () => {
     processScannedQr(manualQr)
     setManualQr('')
@@ -657,18 +629,6 @@ function App() {
                   onClick={() => setCameraEnabled((prev) => !prev)}
                 >
                   {cameraEnabled ? 'Остановить камеру' : 'Запустить камеру'}
-                </Button>
-                <Button variant="outline" onClick={probeCameraAccess}>
-                  Проверить доступ
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCameraEnabled(false)
-                    setScanInfo('Камера остановлена')
-                  }}
-                >
-                  Сброс
                 </Button>
               </div>
 
