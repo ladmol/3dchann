@@ -34,7 +34,6 @@ function App() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [manualStatus, setManualStatus] = useState<string>(BASE_STATUSES[0])
-  const [statusComment, setStatusComment] = useState('')
 
   const [newCustomStatus, setNewCustomStatus] = useState('')
   const [settingsInfo, setSettingsInfo] = useState('')
@@ -168,15 +167,14 @@ function App() {
     setData((prev) => updateMaterialFields(prev, materialId, patch))
   }
 
-  const handleChangeStatus = () => {
+  const handleManualStatusChange = (nextStatus: string) => {
+    setManualStatus(nextStatus)
+
     if (!selectedMaterialId) {
       return
     }
 
-    setData((prev) =>
-      changeMaterialStatus(prev, selectedMaterialId, manualStatus, 'manual', statusComment.trim()),
-    )
-    setStatusComment('')
+    setData((prev) => changeMaterialStatus(prev, selectedMaterialId, nextStatus, 'manual', ''))
   }
 
   const handleDeleteMaterial = (materialId: string) => {
@@ -310,7 +308,7 @@ function App() {
         <div className="two-columns">
           <div className="field-group">
             <label>Текущий статус</label>
-            <select value={manualStatus} onChange={(event) => setManualStatus(event.target.value)}>
+            <select value={manualStatus} onChange={(event) => handleManualStatusChange(event.target.value)}>
               {statuses.map((status) => (
                 <option value={status} key={status}>
                   {status}
@@ -318,20 +316,9 @@ function App() {
               ))}
             </select>
           </div>
-          <div className="field-group">
-            <label>Комментарий к смене статуса</label>
-            <input
-              value={statusComment}
-              onChange={(event) => setStatusComment(event.target.value)}
-              placeholder="Причина смены статуса"
-            />
-          </div>
         </div>
 
         <div className="button-row">
-          <button className="button" onClick={handleChangeStatus}>
-            Применить статус вручную
-          </button>
           <button
             className="button danger"
             onClick={() => handleDeleteMaterial(selectedMaterial.id)}
