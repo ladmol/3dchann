@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Camera, CheckCircle2, Database, Pencil, QrCode, Search, Settings, Trash2 } from 'lucide-react'
 import { Scanner } from '@yudiel/react-qr-scanner'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import {
   addCategory,
   addCustomStatus,
@@ -908,6 +909,7 @@ function App() {
           </Card>
         </TabsContent>
       </Tabs>
+      <SpeedInsights />
     </div>
   )
 }
