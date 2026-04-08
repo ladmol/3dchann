@@ -20,6 +20,9 @@ importers:
       '@radix-ui/react-tabs':
         specifier: ^1.1.13
         version: 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@vercel/speed-insights':
+        specifier: ^2.0.0
+        version: 2.0.0(react@19.2.4)
       '@yudiel/react-qr-scanner':
         specifier: ^2.5.1
         version: 2.5.1(@types/emscripten@1.41.5)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1285,6 +1288,32 @@ packages:
   '@typescript-eslint/visitor-keys@8.58.0':
     resolution: {integrity: sha512-XJ9UD9+bbDo4a4epraTwG3TsNPeiB9aShrUneAVXy8q4LuwowN+qu89/6ByLMINqvIMeI9H9hOHQtg/ijrYXzQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@vercel/speed-insights@2.0.0':
+    resolution: {integrity: sha512-jwkNcrTeafWxjmWq4AHBaptSqZiJkYU5adLC9QBSqeim0GcqDMgN5Ievh8OG1rJ6W3A4l1oiP7qr9CWxGuzu3w==}
+    peerDependencies:
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      nuxt: '>= 3'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      nuxt:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   '@vitejs/plugin-react@6.0.1':
     resolution: {integrity: sha512-l9X/E3cDb+xY3SWzlG1MOGt2usfEHGMNIaegaUGFsLkb3RCn/k8/TOXBcab+OndDI4TBtktT8/9BwwW8Vi9KUQ==}
@@ -4032,6 +4061,10 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 8.58.0
       eslint-visitor-keys: 5.0.1
+
+  '@vercel/speed-insights@2.0.0(react@19.2.4)':
+    optionalDependencies:
+      react: 19.2.4
 
   '@vitejs/plugin-react@6.0.1(vite@8.0.5(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1))':
     dependencies:
